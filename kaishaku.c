@@ -58,21 +58,14 @@ char error_message[DEFAULT_BUFFER_SIZE];
     X(rename, argv2, argv3)       \
     X(abort, argv2)
 
-// Command string
-// #define COMMAND_STRING " checkout switch branch save exit status list clean config recover rename
-// abort "
-
 #define CMD_NAME(c, ...) " " #c
 
 #define CMD_ENUM(c, ...) CMD_OFFSET_##c = 0,
-// #pragma GCC diagnostic push
-// #pragma GCC diagnostic ignored "-Wpedantic"
 
 #define CMD_CASE(c, ...)      \
     case CMD(#c):             \
         cmd_##c(__VA_ARGS__); \
         break;
-// #pragma GCC diagnostic pop
 
 #define COMMAND_STRING_LITERAL COMMAND_LIST(CMD_NAME) " "
 
@@ -123,7 +116,6 @@ struct {
 } config = {.confirm_exit = 1, .auto_stash = 0, .auto_save = 0};
 
 // Safe path joining function
-
 __attribute__((optimize("O2")))  // Avoid -O3 false positive: snprintf() input may alias static buffer (safe).
 char* safe_path_join(const char* dir, const char* file) {
     static char path_buffer[MAX_PATH_LENGTH];
@@ -139,7 +131,7 @@ char* safe_path_join(const char* dir, const char* file) {
 
 void usage(void) {
     printf(
-        "%skaishaku - a minimal tool for safe Git experimentation via detached HEAD sessions%s\n\n",
+        "%skaishaku - a tool for safe Git experimentation via detached HEAD sessions%s\n\n",
         COLOR_CYAN, COLOR_RESET);
     printf("%sUsage:%s\n", COLOR_CYAN, COLOR_RESET);
     printf("  %skaishaku checkout%s <session> [<commit>]  Start a new session from commit\n",
@@ -1098,7 +1090,7 @@ int main(int argc, char* argv[]) {
     int offset = get_command_offset(argv[1]);
     if (offset == -1) {
         fprintf(stderr, "Unknown command: %s\n", argv[1]);
-        return 1;
+        usage();
     }
 
     load_config();

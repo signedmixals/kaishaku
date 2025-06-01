@@ -1,5 +1,7 @@
 # kaishaku v0.9.3 - manage detached HEAD sessions for safe Git experimentation
 
+> “The mechanic that would perfect his work must first sharpen his tools.” — Confucius
+
 
 ## Description
 
@@ -10,6 +12,11 @@ kaishaku creates isolated Git sessions where you can:
 - Switch between experiments
 
 All without touching your working branches.
+
+
+## Origin of the Name
+
+Kaishakus used to cut off heads in the most honorable way in feudal Japan — just like this tool intentionally creates detached HEAD sessions in Git, letting you work safely and separately from your main branches.
 
 ## Installation
 

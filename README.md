@@ -1,4 +1,4 @@
-# kaishaku v0.9.1 - manage detached HEAD sessions for safe Git experimentation
+# kaishaku v0.9.3 - manage detached HEAD sessions for safe Git experimentation
 
 
 ## Description
@@ -19,7 +19,7 @@ git clone https://github.com/signedmixals/kaishaku.git
 cd kaishaku
 
 # Build it
-gcc -o kaishaku kaishaku.c
+gcc -o kaishaku kaishaku.c -O3
 ```
 
 ## Usage

@@ -28,22 +28,23 @@
 #define COLOR_RED "\033[31m"
 
 // Configuration constants
-#define KAISHAKU_DIR ".git/kaishaku"
-#define CONFIG_FILE ".git/config"
+#define KAISHAKU1_DIR ".git/kaishaku"
+//#define CONFIG_FILE ".git/config"
 #define DEFAULT_BUFFER_SIZE 512
 #define MAX_PATH_LENGTH 1024
 
 // Safe path buffer functions
-#define SESSION_DIR(session) (safe_path_join(KAISHAKU_DIR, session))
+#define SESSION_DIR(session) (safe_path_join(kaishaku_dir, session))
 #define SESSION_FILE(session) (safe_path_join(SESSION_DIR(session), "session"))
 #define HEAD_FILE(session) (safe_path_join(SESSION_DIR(session), "head"))
-#define ACTIVE_FILE KAISHAKU_DIR "/.active"
+#define ACTIVE_FILE safe_path_join(kaishaku_dir, "/.active")
 #define SESSION_TIME_FILE(session) (safe_path_join(SESSION_DIR(session), "time"))
 #define SESSION_DESC_FILE(session) (safe_path_join(SESSION_DIR(session), "desc"))
 
 // Global error state
 char error_message[DEFAULT_BUFFER_SIZE];
 
+char *root="";
 #define COMMAND_LIST(X, ...)      \
     X(checkout, argv2, argv3)     \
     X(switch, argv2)              \
@@ -72,6 +73,8 @@ char error_message[DEFAULT_BUFFER_SIZE];
 static const char COMMAND_STRING[] = COMMAND_STRING_LITERAL;
 
 #define CMD(c) ((int)(strstr(COMMAND_STRING, " " c " ") - COMMAND_STRING))
+
+char *kaishaku_dir=NULL;
 
 // All command enums with zero value
 enum { COMMAND_LIST(CMD_ENUM) };
@@ -177,6 +180,28 @@ int file_exists(const char* filename) {
     return access(filename, F_OK) != -1;
 }
 
+char *get_git_root(void) {
+    FILE *fp = popen("git rev-parse --show-toplevel 2>/dev/null", "r");
+    if (!fp) {
+        return strdup("");  // Return empty string on failure
+    }
+
+    char buffer[4096];  // Enough for most paths
+    if (!fgets(buffer, sizeof(buffer), fp)) {
+        pclose(fp);
+        return strdup("");
+    }
+    pclose(fp);
+
+    // Remove trailing newline
+    size_t len = strlen(buffer);
+    if (len > 0 && buffer[len - 1] == '\n') {
+        buffer[len - 1] = '\0';
+    }
+
+    return strdup(buffer);  // Allocate memory for caller
+}
+
 void ensure_directory_exists(const char* dir) {
     struct stat st;
 
@@ -272,7 +297,7 @@ int execute_git_command(const char* cmd, char* output, size_t output_size) {
 void cmd_checkout(const char* session, const char* commit) {
     if (!session)
         usage();
-    ensure_directory_exists(KAISHAKU_DIR);
+    ensure_directory_exists(kaishaku_dir);
 
     char* session_dir = SESSION_DIR(session);
     ensure_directory_exists(session_dir);
@@ -322,7 +347,7 @@ void cmd_switch(const char* session) {
     if (!session)
         usage();
 
-    ensure_directory_exists(KAISHAKU_DIR);
+    ensure_directory_exists(kaishaku_dir);
 
     const char* target_head = read_from_file(HEAD_FILE(session));
     if (!target_head) {
@@ -588,12 +613,12 @@ void cmd_list(void) {
     DIR* dir;
     struct dirent* entry;
 
-    if (!file_exists(KAISHAKU_DIR)) {
+    if (!file_exists(kaishaku_dir)) {
         printf("%sNo kaishaku sessions exist.%s\n", COLOR_YELLOW, COLOR_RESET);
         return;
     }
 
-    dir = opendir(KAISHAKU_DIR);
+    dir = opendir(kaishaku_dir);
     if (!dir) {
         fprintf(stderr, "%sError: Failed to open sessions directory: %s%s\n", COLOR_RED,
                 strerror(errno), COLOR_RESET);
@@ -686,7 +711,7 @@ void cmd_list(void) {
 }
 
 void cmd_clean(const char* session) {
-    if (!file_exists(KAISHAKU_DIR)) {
+    if (!file_exists(kaishaku_dir)) {
         printf("%sNo kaishaku sessions exist.%s\n", COLOR_YELLOW, COLOR_RESET);
         return;
     }
@@ -728,7 +753,7 @@ void cmd_clean(const char* session) {
         DIR* dir;
         struct dirent* entry;
 
-        dir = opendir(KAISHAKU_DIR);
+        dir = opendir(kaishaku_dir);
         if (!dir) {
             fprintf(stderr, "Error: Failed to open sessions directory: %s\n", strerror(errno));
             exit(EXIT_FAILURE);
@@ -842,8 +867,8 @@ void load_config(void) {
     char git_cmd[DEFAULT_BUFFER_SIZE];
 
     // Try to create kaishaku section in git config if it doesn't exist
-    if (!file_exists(KAISHAKU_DIR)) {
-        ensure_directory_exists(KAISHAKU_DIR);
+    if (!file_exists(kaishaku_dir)) {
+        ensure_directory_exists(kaishaku_dir);
     }
 
     // Load confirm_exit
@@ -884,7 +909,7 @@ void cmd_recover(const char* session) {
     if (!session)
         usage();
 
-    if (!file_exists(KAISHAKU_DIR)) {
+    if (!file_exists(kaishaku_dir)) {
         fprintf(stderr, "%sError: No kaishaku sessions exist.%s\n", COLOR_RED, COLOR_RESET);
         exit(EXIT_FAILURE);
     }
@@ -957,7 +982,7 @@ void cmd_rename(const char* old_name, const char* new_name) {
     if (!old_name || !new_name)
         usage();
 
-    if (!file_exists(KAISHAKU_DIR)) {
+    if (!file_exists(kaishaku_dir)) {
         fprintf(stderr, "%sError: No kaishaku sessions exist.%s\n", COLOR_RED, COLOR_RESET);
         exit(EXIT_FAILURE);
     }
@@ -997,7 +1022,7 @@ void cmd_rename(const char* old_name, const char* new_name) {
 }
 
 void cmd_abort(const char* session) {
-    if (!file_exists(KAISHAKU_DIR)) {
+    if (!file_exists(kaishaku_dir)) {
         fprintf(stderr, "%sError: No kaishaku sessions exist.%s\n", COLOR_RED, COLOR_RESET);
         exit(EXIT_FAILURE);
     }
@@ -1081,10 +1106,10 @@ char* get_session_time(const char* session) {
 }
 
 
+
 int main(int argc, char* argv[]) {
     if (argc < 2 || strcmp(argv[1], "help") == 0) {
         usage();
-        return 0;
     }
 
     int offset = get_command_offset(argv[1]);
@@ -1093,7 +1118,17 @@ int main(int argc, char* argv[]) {
         usage();
     }
 
-    load_config();
+//feat: allow tool to run from any directory inside the Git repository
+root = get_git_root();
+if (strlen(root) == 0) {
+    fprintf(stderr, "error: not a git repository\n");
+    free(root);
+    exit(1);
+}
+
+   kaishaku_dir = safe_path_join(root, ".git/kaishaku");
+
+   load_config();
 
     const char* argv2 = (argc >= 3) ? argv[2] : NULL;
     const char* argv3 = (argc >= 4) ? argv[3] : NULL;
@@ -1103,6 +1138,8 @@ int main(int argc, char* argv[]) {
 #pragma GCC diagnostic ignored "-Wpedantic"
     switch (offset) { COMMAND_LIST(CMD_CASE) }
 #pragma GCC diagnostic pop
+
+free(root); 
 
     return 0;
 }

@@ -120,7 +120,7 @@ struct {
 
 // Safe path joining function
 __attribute__((optimize("O2")))  // Avoid -O3 false positive: snprintf() input may alias static buffer (safe).
-char* safe_path_join(const char* dir, const char* file) {
+char* safe_path1_join(const char* dir, const char* file) {
     static char path_buffer[MAX_PATH_LENGTH];
 
     if (snprintf(path_buffer, sizeof(path_buffer), "%s/%s", dir, file) >=
@@ -131,6 +131,31 @@ char* safe_path_join(const char* dir, const char* file) {
 
     return path_buffer;
 }
+
+char* safe_path_join(const char* dir, const char* file) {
+    size_t dir_len = strlen(dir);
+    size_t file_len = strlen(file);
+
+    // Account for '/' and null terminator
+    if (dir_len + 1 + file_len + 1 > MAX_PATH_LENGTH) {
+        fprintf(stderr, "Error: Path too long: %s/%s\n", dir, file);
+        exit(EXIT_FAILURE);
+    }
+
+    char* path = malloc(dir_len + 1 + file_len + 1);
+    if (!path) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(path, dir, dir_len);
+    path[dir_len] = '/';
+    memcpy(path + dir_len + 1, file, file_len);
+    path[dir_len + 1 + file_len] = '\0';
+
+    return path;
+}
+
 
 void usage(void) {
     printf(
@@ -181,7 +206,7 @@ int file_exists(const char* filename) {
 }
 
 char *get_git_root(void) {
-    FILE *fp = popen("git rev-parse --show-toplevel 2>/dev/null", "r");
+    FILE *fp = popen("git rev-parse --show-toplevel", "r");
     if (!fp) {
         return strdup("");  // Return empty string on failure
     }
@@ -1123,7 +1148,7 @@ root = get_git_root();
 if (strlen(root) == 0) {
     fprintf(stderr, "error: not a git repository\n");
     free(root);
-    exit(1);
+    return 1;
 }
 
    kaishaku_dir = safe_path_join(root, ".git/kaishaku");
@@ -1140,6 +1165,7 @@ if (strlen(root) == 0) {
 #pragma GCC diagnostic pop
 
 free(root); 
+free(kaishaku_dir); 
 
     return 0;
 }
